@@ -650,7 +650,7 @@ function renderPuntos(sesiones){
   if(!sesiones.length){cont.innerHTML='<div class="sin-sesiones">No hay operadores activos en este momento.</div>';return;}
   cont.innerHTML=sesiones.map(s=>{
     const tots={moto:0,taxi:0,bus:0,auto:0};
-    s.totales.forEach(t=>{tots[t.tipo]=parseInt(t.total)||0;});
+    s.totales.forEach(t=>{tots[t.tipo]=Math.max(0,parseInt(t.total)||0);});
     const total=Object.values(tots).reduce((a,b)=>a+b,0);
     return`<div class="punto-card">
       <div class="punto-header">
@@ -717,7 +717,7 @@ function renderAdminResumen(sesiones){
   let totalG=0;
   cont.innerHTML=sesiones.map(s=>{
     const tots={moto:0,taxi:0,bus:0,auto:0};
-    s.totales.forEach(t=>{tots[t.tipo]=parseInt(t.total)||0;});
+    s.totales.forEach(t=>{tots[t.tipo]=Math.max(0,parseInt(t.total)||0);});
     const t=Object.values(tots).reduce((a,b)=>a+b,0); totalG+=t;
     return`<div style="padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="font-size:13px;font-weight:600">${s.punto}</div>
@@ -811,7 +811,7 @@ async function exportPDF(){
       const [r1,r2]=await Promise.all([fetch(API+'/api/control/resumen'),fetch(API+'/api/control/eventos')]);
       const sesiones=await r1.json();
       const eventos=await r2.json();
-      sesiones.forEach(s=>s.totales.forEach(t=>{if(totals[t.tipo]!==undefined)totals[t.tipo]+=parseInt(t.total)||0;}));
+      sesiones.forEach(s=>s.totales.forEach(t=>{if(totals[t.tipo]!==undefined)totals[t.tipo]+=Math.max(0,parseInt(t.total)||0);}));
       inicioLabel=sesiones.length?sesiones.reduce((min,s)=>s.inicio<min?s.inicio:min,sesiones[0].inicio):'--:--:--';
       evRows=eventos.map(e=>({hora:e.hora,tipo:labels[e.tipo]||e.tipo,detalle:e.detalle,punto:e.punto}));
     }catch(e){toast('Error al obtener datos para el PDF','err');return;}
