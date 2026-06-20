@@ -364,6 +364,7 @@
       <button class="btn-danger" onclick="adminResetFull()">🗑 Reiniciar conteo</button>
       <input type="date" id="admin-fecha" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
       <button class="btn-danger" onclick="adminBorrarFecha()">📅 Borrar conteos por fecha</button>
+      <button class="btn-danger" onclick="adminBorrarEventos()">🗑 Borrar todos los eventos</button>
     </div>
   </div>
 </div>
@@ -767,6 +768,17 @@ async function adminBorrarFecha(){
     const r=await fetch(API+'/api/admin/sesiones-por-fecha',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:session.pin,fecha})});
     const d=await r.json();
     if(d.ok){toast('Eliminada(s) '+d.sesiones+' sesión(es) del '+fecha);loadAdmin();}
+    else toast('Error: '+(d.error||'desconocido'),'err');
+  }catch(e){toast('Error de conexión','err');}
+}
+
+async function adminBorrarEventos(){
+  const confirmacion=prompt('¿Estás seguro? Esta acción borra TODOS los eventos registrados. Escribí BORRAR para confirmar');
+  if(confirmacion!=='BORRAR')return;
+  try{
+    const r=await fetch(API+'/api/admin/eventos?pin='+session.pin,{method:'DELETE'});
+    const d=await r.json();
+    if(d.ok){toast('Eliminados '+d.borrados+' evento(s) correctamente');loadAdmin();}
     else toast('Error: '+(d.error||'desconocido'),'err');
   }catch(e){toast('Error de conexión','err');}
 }
