@@ -259,7 +259,7 @@
       <div class="v-card bus"><span class="v-anim bus" id="anim-bus">+1</span>
         <div class="v-card-head"><span class="v-icon">🚌</span><span class="v-lbl">Bus / Ómnibus</span></div>
         <div class="v-num" id="cnt-bus">0</div>
-        <div class="v-btns"><button class="v-btn sub" onclick="rmV('bus')">−</button><button class="v-btn add" onclick="addBusGen()">＋</button></div>
+        <div class="v-btns"><button class="v-btn sub" onclick="rmV('bus')">−</button><button class="v-btn add" onclick="focusEmpInput()">＋</button></div>
       </div>
       <div class="v-card auto"><span class="v-anim auto" id="anim-auto">+1</span>
         <div class="v-card-head"><span class="v-icon">🚗</span><span class="v-lbl">Auto / Camioneta</span></div>
@@ -273,6 +273,7 @@
         <input type="text" id="emp-input" placeholder="Nombre empresa (ej: CODESA, Línea 30…)" onkeydown="if(event.key==='Enter')addEmp()">
         <button class="btn-reg" onclick="addEmp()">+ Registrar bus</button>
       </div>
+      <div id="emp-error" style="font-size:12px;color:var(--danger);margin-top:-6px;margin-bottom:6px;display:none">Ingresá el nombre de la empresa</div>
       <div class="emp-list" id="emp-list"><div class="emp-empty">Sin empresas registradas.</div></div>
     </div>
     <div class="stats-grid">
@@ -513,18 +514,21 @@ function rmV(tipo){
 }
 
 function addBusGen(){
-  counts.bus++;
-  document.getElementById('cnt-bus').textContent=counts.bus;
-  showAnim('bus');
-  pushLocal('bus','Bus/Ómnibus (sin empresa)','+1');
-  sendEvento('bus','Bus/Ómnibus (sin empresa)','+1');
-  updateStats();
+  focusEmpInput();
+}
+
+function focusEmpInput(){
+  const input=document.getElementById('emp-input');
+  input.scrollIntoView({behavior:'smooth',block:'center'});
+  input.focus();
 }
 
 function addEmp(){
   const input=document.getElementById('emp-input');
+  const errEl=document.getElementById('emp-error');
   const name=input.value.trim();
-  if(!name){input.focus();return;}
+  if(!name){errEl.style.display='block';input.focus();return;}
+  errEl.style.display='none';
   const key=name.toLowerCase();
   if(!empresas[key])empresas[key]={label:name,count:0};
   empresas[key].count++;
