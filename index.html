@@ -24,7 +24,7 @@
   .screen.active{display:block}
 
   /* LOGIN */
-  #screen-login{display:flex;align-items:center;justify-content:center;padding:20px}
+  #screen-login.active{display:flex;align-items:center;justify-content:center;padding:20px}
   .login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:100%;max-width:380px}
   .login-logo{text-align:center;font-size:40px;margin-bottom:8px}
   .login-title{text-align:center;font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px}
@@ -382,9 +382,9 @@ function toast(msg, type='ok') {
 document.getElementById('login-pin').addEventListener('input', function() {
   const pin = this.value.toUpperCase();
   this.value = pin;
-  const pf = document.getElementById('punto-field');
-  if (pin.startsWith('OP')) pf.style.display='block';
-  else pf.style.display='none';
+  const show = pin.startsWith('OP');
+  document.getElementById('punto-field').style.display = show ? 'block' : 'none';
+  document.getElementById('nombre-field').style.display = show ? 'block' : 'none';
 });
 
 async function doLogin() {
@@ -410,6 +410,7 @@ async function doLogin() {
 
 function showScreen(rol) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  window.scrollTo(0,0);
   if (rol==='operador') { document.getElementById('screen-operador').classList.add('active'); initOperador(); }
   else if (rol==='control') { document.getElementById('screen-control').classList.add('active'); initControl(); }
   else if (rol==='admin') { document.getElementById('screen-admin').classList.add('active'); initAdmin(); }
