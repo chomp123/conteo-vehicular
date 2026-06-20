@@ -348,6 +348,9 @@
       <button class="btn-sec" onclick="loadAdmin()">↻ Actualizar</button>
       <button class="btn-sec" onclick="downloadCtrlCSV()">⬇ Exportar CSV completo</button>
       <button class="btn-danger" onclick="adminReset()">⚠ Cerrar todas las sesiones activas</button>
+      <button class="btn-danger" onclick="adminResetFull()">🗑 Reiniciar conteo</button>
+      <input type="date" id="admin-fecha" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
+      <button class="btn-danger" onclick="adminBorrarFecha()">📅 Borrar conteos por fecha</button>
     </div>
   </div>
 </div>
@@ -702,6 +705,28 @@ async function adminReset(){
     const r=await fetch(API+'/api/admin/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:session.pin})});
     const d=await r.json();
     if(d.ok){toast('Sesiones cerradas correctamente');loadAdmin();}
+    else toast('Error: '+(d.error||'desconocido'),'err');
+  }catch(e){toast('Error de conexión','err');}
+}
+
+async function adminResetFull(){
+  if(!confirm('¿Reiniciar conteo? Se cerrarán TODAS las sesiones activas y se borrarán sus eventos permanentemente. Esta acción no se puede deshacer.'))return;
+  try{
+    const r=await fetch(API+'/api/admin/reset-full',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:session.pin})});
+    const d=await r.json();
+    if(d.ok){toast('Conteo reiniciado: '+d.sesiones+' sesión(es) eliminada(s)');loadAdmin();}
+    else toast('Error: '+(d.error||'desconocido'),'err');
+  }catch(e){toast('Error de conexión','err');}
+}
+
+async function adminBorrarFecha(){
+  const fecha=document.getElementById('admin-fecha').value;
+  if(!fecha){toast('Seleccioná una fecha primero','err');return;}
+  if(!confirm('¿Borrar TODOS los eventos y sesiones del '+fecha+'? Esta acción no se puede deshacer.'))return;
+  try{
+    const r=await fetch(API+'/api/admin/sesiones-por-fecha',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:session.pin,fecha})});
+    const d=await r.json();
+    if(d.ok){toast('Eliminada(s) '+d.sesiones+' sesión(es) del '+fecha);loadAdmin();}
     else toast('Error: '+(d.error||'desconocido'),'err');
   }catch(e){toast('Error de conexión','err');}
 }
