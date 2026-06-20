@@ -201,8 +201,16 @@
     <div class="login-title">Conteo Vehicular</div>
     <div class="login-sub">Sistema de Conteo Vehicular</div>
     <div class="form-group punto-field" id="punto-field">
-      <label class="form-label">Punto de observación</label>
-      <input class="form-input" id="login-punto" type="text" placeholder="Ej: Av. Mariscal López / Av. España">
+      <label class="form-label">Ubicación</label>
+      <select class="form-input" id="login-ubicacion" style="cursor:pointer">
+        <option value="" disabled selected>Seleccioná la ubicación</option>
+        <option value="INSTITUTO DE PREVISION SOCIAL (IPS) 12 DE JUNIO">INSTITUTO DE PREVISION SOCIAL (IPS) 12 DE JUNIO</option>
+        <option value="UNIVERSIDAD MARIA AUXILIADORA (UMAX)">UNIVERSIDAD MARIA AUXILIADORA (UMAX)</option>
+      </select>
+    </div>
+    <div class="form-group punto-field" id="calle-field">
+      <label class="form-label">Calle / Esquina</label>
+      <input class="form-input" id="login-calle" type="text" placeholder="Ej: Av. España / Rca. Argentina">
     </div>
     <div class="form-group punto-field" id="nombre-field">
       <label class="form-label">Nombre del agente</label>
@@ -396,12 +404,15 @@ document.getElementById('login-pin').addEventListener('input', function() {
   this.value = pin;
   const show = pin.startsWith('OP');
   document.getElementById('punto-field').style.display = show ? 'block' : 'none';
+  document.getElementById('calle-field').style.display = show ? 'block' : 'none';
   document.getElementById('nombre-field').style.display = show ? 'block' : 'none';
 });
 
 async function doLogin() {
   const pin = document.getElementById('login-pin').value.trim().toUpperCase();
-  const punto = document.getElementById('login-punto').value.trim();
+  const ubicacion = document.getElementById('login-ubicacion').value;
+  const calle = document.getElementById('login-calle').value.trim();
+  const punto = [ubicacion, calle].filter(Boolean).join(' — ');
   const nombre = document.getElementById('login-nombre').value.trim();
   const err = document.getElementById('login-error');
   const btn = document.getElementById('btn-login');
@@ -436,10 +447,12 @@ function logout() {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-login').classList.add('active');
   document.getElementById('login-pin').value='';
-  document.getElementById('login-punto').value='';
+  document.getElementById('login-ubicacion').value='';
+  document.getElementById('login-calle').value='';
   document.getElementById('login-nombre').value='';
   document.getElementById('login-error').textContent='';
   document.getElementById('punto-field').style.display='none';
+  document.getElementById('calle-field').style.display='none';
   document.getElementById('nombre-field').style.display='none';
   document.getElementById('btn-login').disabled=false;
   document.getElementById('btn-login').textContent='Ingresar';
