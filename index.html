@@ -203,6 +203,10 @@
       <label class="form-label">Punto de observación</label>
       <input class="form-input" id="login-punto" type="text" placeholder="Ej: Av. Mariscal López / Av. España">
     </div>
+    <div class="form-group punto-field" id="nombre-field">
+      <label class="form-label">Nombre del agente</label>
+      <input class="form-input" id="login-nombre" type="text" placeholder="Tu nombre completo">
+    </div>
     <div class="form-group">
       <label class="form-label">PIN de acceso</label>
       <input class="form-input" id="login-pin" type="text" placeholder="Ingresá tu PIN" style="text-transform:uppercase;letter-spacing:.1em"
@@ -386,12 +390,15 @@ document.getElementById('login-pin').addEventListener('input', function() {
 async function doLogin() {
   const pin = document.getElementById('login-pin').value.trim().toUpperCase();
   const punto = document.getElementById('login-punto').value.trim();
+  const nombre = document.getElementById('login-nombre').value.trim();
   const err = document.getElementById('login-error');
   const btn = document.getElementById('btn-login');
   if (!pin) { err.textContent='Ingresá tu PIN'; return; }
   btn.disabled=true; btn.textContent='Ingresando...'; err.textContent='';
   try {
-    const r = await fetch(API+'/api/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin,punto})});
+    const body = {pin, punto};
+    if (nombre) body.nombre = nombre;
+    const r = await fetch(API+'/api/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d = await r.json();
     if (!r.ok) { err.textContent=d.error||'Error al ingresar'; btn.disabled=false; btn.textContent='Ingresar'; return; }
     session = {...d, pin};
@@ -416,8 +423,10 @@ function logout() {
   document.getElementById('screen-login').classList.add('active');
   document.getElementById('login-pin').value='';
   document.getElementById('login-punto').value='';
+  document.getElementById('login-nombre').value='';
   document.getElementById('login-error').textContent='';
   document.getElementById('punto-field').style.display='none';
+  document.getElementById('nombre-field').style.display='none';
   document.getElementById('btn-login').disabled=false;
   document.getElementById('btn-login').textContent='Ingresar';
 }
