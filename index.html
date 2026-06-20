@@ -190,6 +190,7 @@
     .puntos-grid{grid-template-columns:1fr}
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -292,6 +293,9 @@
       <div class="ev-wrap"><table class="ev-tbl"><thead><tr><th>Hora</th><th>Tipo</th><th>Detalle</th><th>Acción</th></tr></thead>
       <tbody id="op-ev-tbody"><tr><td colspan="4" style="text-align:center;color:var(--text3);font-style:italic;padding:16px">Sin registros aún...</td></tr></tbody></table></div>
     </div>
+    <div class="act-row">
+      <button class="btn-sec" onclick="exportPDF()">⬇ Exportar Informe PDF</button>
+    </div>
   </div>
 </div>
 
@@ -318,7 +322,7 @@
       <tbody id="ctrl-feed"></tbody></table></div>
     </div>
     <div class="act-row">
-      <button class="btn-sec" onclick="downloadCtrlCSV()">⬇ Exportar CSV global</button>
+      <button class="btn-sec" onclick="exportPDF()">⬇ Exportar Informe PDF</button>
     </div>
   </div>
 </div>
@@ -347,7 +351,7 @@
     </div>
     <div class="act-row">
       <button class="btn-sec" onclick="loadAdmin()">↻ Actualizar</button>
-      <button class="btn-sec" onclick="downloadCtrlCSV()">⬇ Exportar CSV completo</button>
+      <button class="btn-sec" onclick="exportPDF()">⬇ Exportar Informe PDF</button>
       <button class="btn-danger" onclick="adminReset()">⚠ Cerrar todas las sesiones activas</button>
       <button class="btn-danger" onclick="adminResetFull()">🗑 Reiniciar conteo</button>
       <input type="date" id="admin-fecha" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
@@ -754,19 +758,149 @@ async function adminBorrarFecha(){
   }catch(e){toast('Error de conexión','err');}
 }
 
-async function downloadCtrlCSV(){
-  try{
-    const pin=session.pin;
-    const r=await fetch(API+'/api/admin/export?pin='+pin);
-    const data=await r.json();
-    if(data.error){toast(data.error,'err');return;}
-    const rows=['Punto,Operador,Tipo,Detalle,Accion,Hora'];
-    data.forEach(e=>rows.push(['"'+e.punto+'"','"'+e.operador+'"',e.tipo,'"'+e.detalle+'"',e.accion,'"'+e.hora+'"'].join(',')));
-    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='conteo-vehicular-export.csv'; a.click();
-  }catch(e){toast('Error al exportar','err');}
+async function exportPDF(){
+  if(!window.jspdf){toast('Librería PDF no cargada, intentá de nuevo','err');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=15,RW=W-M*2;
+  let y=20,pg=1;
+  const now=new Date();
+  const fechaStr=now.toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const horaStr=now.toTimeString().slice(0,8);
+
+  function footer(){
+    doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
+    doc.text('Documento generado automáticamente por Sistema de Conteo Vehicular',M,289);
+    doc.text('Página '+pg,W-M,289,{align:'right'});
+  }
+  function newPage(){footer();doc.addPage();pg++;y=20;}
+  function guard(h=10){if(y+h>280)newPage();}
+  function hLine(){doc.setDrawColor(200);doc.setLineWidth(0.2);doc.line(M,y,W-M,y);}
+  function sectionTitle(txt){
+    guard(14);y+=3;
+    doc.setFillColor(235,241,252);doc.roundedRect(M,y-5,RW,9,1,1,'F');
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(30,60,130);
+    doc.text(txt,M+3,y);y+=8;
+  }
+  function kv(label,value){
+    guard(7);
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
+    doc.text(label,M+4,y);
+    doc.setFont('helvetica','bold');doc.setTextColor(20,20,20);
+    doc.text(String(value),M+68,y);y+=6;
+  }
+
+  // collect data
+  let totals={moto:0,taxi:0,bus:0,auto:0};
+  let evRows=[],empRows=[];
+  let puntoLabel,operadorLabel,inicioLabel;
+  const finLabel=horaStr;
+  const tipoNames={moto:'Motocicletas',taxi:'Taxis',bus:'Buses / Ómnibus',auto:'Autos / Camionetas'};
+
+  if(session.rol==='operador'){
+    totals={...counts};
+    puntoLabel=session.punto;
+    operadorLabel=session.usuario;
+    inicioLabel=startTime?startTime.toTimeString().slice(0,8):'--:--:--';
+    empRows=Object.values(empresas).sort((a,b)=>b.count-a.count);
+    evRows=[...localEvents].reverse().map(e=>({hora:e.hora,tipo:labels[e.tipo]||e.tipo,detalle:e.detalle,accion:e.accion}));
+  } else {
+    puntoLabel='Global — todos los puntos activos';
+    operadorLabel=session.usuario;
+    try{
+      const [r1,r2]=await Promise.all([fetch(API+'/api/control/resumen'),fetch(API+'/api/control/eventos')]);
+      const sesiones=await r1.json();
+      const eventos=await r2.json();
+      sesiones.forEach(s=>s.totales.forEach(t=>{if(totals[t.tipo]!==undefined)totals[t.tipo]+=parseInt(t.total)||0;}));
+      inicioLabel=sesiones.length?sesiones.reduce((min,s)=>s.inicio<min?s.inicio:min,sesiones[0].inicio):'--:--:--';
+      evRows=eventos.map(e=>({hora:e.hora,tipo:labels[e.tipo]||e.tipo,detalle:e.detalle,punto:e.punto}));
+    }catch(e){toast('Error al obtener datos para el PDF','err');return;}
+  }
+
+  const total=Object.values(totals).reduce((a,b)=>a+b,0);
+  const pct=k=>total>0?(totals[k]/total*100).toFixed(1)+'%':'0%';
+  const predominante=total>0?tipoNames[Object.keys(totals).reduce((a,b)=>totals[a]>totals[b]?a:b)]:'—';
+  let avgMin='—';
+  if(session.rol==='operador'&&startTime){
+    const mins=(now-startTime)/60000;
+    if(mins>=0.5)avgMin=(total/mins).toFixed(1)+' móv/min';
+  }
+
+  // HEADER
+  doc.setFillColor(22,68,142);doc.rect(0,0,W,18,'F');
+  doc.setFontSize(15);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  doc.text('INFORME DE CONTEO VEHICULAR',W/2,9,{align:'center'});
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(200,215,245);
+  doc.text('Sistema de Conteo Vehicular · '+fechaStr,W/2,15,{align:'center'});
+  y=28;
+
+  // ENCABEZADO
+  sectionTitle('DATOS DEL INFORME');
+  kv('Generado:',fechaStr+' '+horaStr);
+  kv('Punto de observación:',puntoLabel);
+  kv('Operador / Agente:',operadorLabel);
+  kv('Período:',inicioLabel+' – '+finLabel);
+
+  // RESUMEN EJECUTIVO
+  y+=3;sectionTitle('RESUMEN EJECUTIVO');
+  kv('Total de móviles registrados:',total);
+  kv('Motocicletas:',totals.moto+'   ('+pct('moto')+')');
+  kv('Taxis:',totals.taxi+'   ('+pct('taxi')+')');
+  kv('Buses / Ómnibus:',totals.bus+'   ('+pct('bus')+')');
+  kv('Autos / Camionetas:',totals.auto+'   ('+pct('auto')+')');
+  kv('Tipo predominante:',predominante);
+  kv('Promedio:',avgMin);
+
+  // BUSES POR EMPRESA
+  if(empRows.length){
+    y+=3;sectionTitle('DESGLOSE DE BUSES POR EMPRESA');
+    guard(10);
+    doc.setFillColor(210,225,250);doc.rect(M,y-4,RW,7,'F');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,60,130);
+    doc.text('Empresa',M+3,y);doc.text('Cant.',W-M-3,y,{align:'right'});
+    y+=5;hLine();y+=2;
+    empRows.forEach((e,i)=>{
+      guard(7);
+      if(i%2===0){doc.setFillColor(246,249,255);doc.rect(M,y-4,RW,6.5,'F');}
+      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
+      doc.text(e.label,M+3,y);
+      doc.setFont('helvetica','bold');doc.text(String(e.count),W-M-3,y,{align:'right'});
+      y+=6;
+    });
+  }
+
+  // REGISTRO HORARIO
+  if(evRows.length){
+    y+=3;sectionTitle('REGISTRO HORARIO COMPLETO');
+    const isCtrl=session.rol!=='operador';
+    const cols=isCtrl
+      ?[{l:'Hora',w:22},{l:'Tipo',w:40},{l:'Detalle',w:76},{l:'Punto',w:42}]
+      :[{l:'Hora',w:22},{l:'Tipo',w:50},{l:'Detalle',w:90},{l:'Acción',w:18}];
+    function tblHeader(){
+      guard(10);
+      doc.setFillColor(210,225,250);doc.rect(M,y-4,RW,7,'F');
+      doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,60,130);
+      let cx=M+2;cols.forEach(c=>{doc.text(c.l,cx,y);cx+=c.w;});
+      y+=5;hLine();y+=2;
+    }
+    tblHeader();
+    evRows.forEach((e,i)=>{
+      if(y>276){newPage();tblHeader();}
+      if(i%2===0){doc.setFillColor(246,249,255);doc.rect(M,y-3.5,RW,6,'F');}
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
+      let cx=M+2;
+      const vals=isCtrl?[e.hora,e.tipo,e.detalle,e.punto]:[e.hora,e.tipo,e.detalle,e.accion];
+      vals.forEach((v,vi)=>{
+        doc.text(doc.splitTextToSize(String(v||''),cols[vi].w-3)[0]||'',cx,y);
+        cx+=cols[vi].w;
+      });
+      y+=5.5;
+    });
+  }
+
+  footer();
+  doc.save('conteo-vehicular-'+now.toISOString().slice(0,10)+'.pdf');
+  toast('PDF generado correctamente');
 }
 </script>
 </body>
