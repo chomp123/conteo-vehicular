@@ -135,6 +135,7 @@
   table.ev-tbl th:nth-child(2),table.ev-tbl td:nth-child(2){width:38px;text-align:center}
   table.ev-tbl th:nth-child(3),table.ev-tbl td:nth-child(3){width:auto}
   table.ev-tbl th:nth-child(4),table.ev-tbl td:nth-child(4){width:50px;text-align:center}
+  table.ev-tbl th:nth-child(5),table.ev-tbl td:nth-child(5){width:80px}
   .pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;white-space:nowrap}
   .pill-moto{background:var(--moto-bg);color:var(--moto)}.pill-taxi{background:var(--taxi-bg);color:var(--taxi)}
   .pill-bus{background:var(--bus-bg);color:var(--bus)}.pill-auto{background:var(--auto-bg);color:var(--auto)}
@@ -327,7 +328,7 @@
         <button class="btn-sec" style="font-size:12px;padding:4px 12px" onclick="loadControl()">↻ Actualizar</button>
       </div>
       <div id="ctrl-filtros" class="filters" style="padding:6px 0 4px"></div>
-      <div class="ev-wrap feed-wrap"><table class="ev-tbl"><thead><tr><th>Hora</th><th>Tipo</th><th>Detalle</th><th>Punto</th></tr></thead>
+      <div class="ev-wrap feed-wrap"><table class="ev-tbl"><thead><tr><th>Hora</th><th>Tipo</th><th>Detalle</th><th>Agente</th><th>Punto</th></tr></thead>
       <tbody id="ctrl-feed"></tbody></table></div>
     </div>
     <div class="act-row">
@@ -691,12 +692,13 @@ function renderPuntos(sesiones){
 function renderFeed(eventos){
   const tb=document.getElementById('ctrl-feed');
   const fil=ctrlFilter==='todos'?eventos:eventos.filter(e=>e.punto===ctrlFilter);
-  if(!fil.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);font-style:italic;padding:16px">Sin eventos registrados.</td></tr>';return;}
+  if(!fil.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);font-style:italic;padding:16px">Sin eventos registrados.</td></tr>';return;}
   tb.innerHTML=fil.map(e=>`
     <tr>
       <td style="font-family:monospace;color:var(--text2)">${e.hora}</td>
       <td style="text-align:center"><span class="pill pill-${e.tipo}">${icons[e.tipo]||e.tipo}</span></td>
       <td>${e.detalle}</td>
+      <td style="font-size:11px;color:var(--text2)">${e.operador||'—'}</td>
       <td style="font-size:11px;color:var(--text2)">${e.punto}</td>
     </tr>`).join('');
 }
@@ -893,7 +895,7 @@ async function exportPDF(){
       const eventos=await r2.json();
       sesiones.forEach(s=>s.totales.forEach(t=>{if(totals[t.tipo]!==undefined)totals[t.tipo]+=Math.max(0,parseInt(t.total)||0);}));
       inicioLabel=sesiones.length?sesiones.reduce((min,s)=>s.inicio<min?s.inicio:min,sesiones[0].inicio):'--:--:--';
-      evRows=eventos.map(e=>({hora:e.hora,tipo:labels[e.tipo]||e.tipo,detalle:e.detalle,punto:e.punto}));
+      evRows=eventos.map(e=>({hora:e.hora,tipo:labels[e.tipo]||e.tipo,detalle:e.detalle,agente:e.operador||'',punto:e.punto}));
     }catch(e){toast('Error al obtener datos para el PDF','err');return;}
   }
 
@@ -960,7 +962,7 @@ async function exportPDF(){
     y+=3;sectionTitle('REGISTRO HORARIO COMPLETO');
     const isCtrl=session.rol!=='operador';
     const cols=isCtrl
-      ?[{l:'Hora',w:22},{l:'Tipo',w:40},{l:'Detalle',w:76},{l:'Punto',w:42}]
+      ?[{l:'Hora',w:20},{l:'Tipo',w:36},{l:'Detalle',w:58},{l:'Agente',w:32},{l:'Punto',w:34}]
       :[{l:'Hora',w:22},{l:'Tipo',w:50},{l:'Detalle',w:90},{l:'Acción',w:18}];
     function tblHeader(){
       guard(10);
@@ -975,7 +977,7 @@ async function exportPDF(){
       if(i%2===0){doc.setFillColor(246,249,255);doc.rect(M,y-3.5,RW,6,'F');}
       doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
       let cx=M+2;
-      const vals=isCtrl?[e.hora,e.tipo,e.detalle,e.punto]:[e.hora,e.tipo,e.detalle,e.accion];
+      const vals=isCtrl?[e.hora,e.tipo,e.detalle,e.agente||'',e.punto]:[e.hora,e.tipo,e.detalle,e.accion];
       vals.forEach((v,vi)=>{
         doc.text(doc.splitTextToSize(String(v||''),cols[vi].w-3)[0]||'',cx,y);
         cx+=cols[vi].w;
