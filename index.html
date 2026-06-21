@@ -904,8 +904,14 @@ async function exportPDF(){
   // ENCABEZADO
   sectionTitle('DATOS DEL INFORME');
   kv('Generado:',fechaStr+' '+horaStr);
-  kv('Punto de observación:',puntoLabel);
-  kv('Operador / Agente:',operadorLabel);
+  if(session.rol==='operador'){
+    const pp=session.punto.split(' — ');
+    kv('Ubicación:',pp[0]||session.punto);
+    if(pp[1])kv('Calle / Esquina:',pp[1]);
+  }else{
+    kv('Punto de observación:',puntoLabel);
+  }
+  kv('Agente:',operadorLabel);
   kv('Período:',inicioLabel+' – '+finLabel);
 
   // RESUMEN EJECUTIVO
