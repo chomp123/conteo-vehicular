@@ -368,6 +368,24 @@
       <button class="btn-danger" onclick="adminBorrarFecha()">📅 Borrar conteos por fecha</button>
       <button class="btn-danger" onclick="adminBorrarEventos()">🗑 Borrar todos los eventos</button>
     </div>
+    <div class="admin-card" style="margin-top:12px">
+      <h3>📅 Exportar por período</h3>
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:8px">
+        <div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Fecha</div>
+          <input type="date" id="pdf-fecha" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Hora inicio</div>
+          <input type="time" id="pdf-desde" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Hora fin</div>
+          <input type="time" id="pdf-hasta" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
+        </div>
+        <button class="btn-sec" onclick="exportPDFPeriodo()">⬇ Exportar PDF del período</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -705,6 +723,7 @@ function renderFeed(eventos){
 
 // ===== ADMIN =====
 function initAdmin(){
+  document.getElementById('pdf-fecha').value=new Date().toISOString().slice(0,10);
   loadAdmin();
 }
 
@@ -989,6 +1008,101 @@ async function exportPDF(){
   footer();
   doc.save('conteo-vehicular-'+now.toISOString().slice(0,10)+'.pdf');
   toast('PDF generado correctamente');
+}
+
+async function exportPDFPeriodo(){
+  if(!window.jspdf){toast('Librería PDF no cargada, intentá de nuevo','err');return;}
+  const fecha=document.getElementById('pdf-fecha').value;
+  const desde=document.getElementById('pdf-desde').value;
+  const hasta=document.getElementById('pdf-hasta').value;
+  if(!fecha||!desde||!hasta){toast('Completá fecha, hora inicio y hora fin','err');return;}
+  if(desde>=hasta){toast('La hora inicio debe ser menor a la hora fin','err');return;}
+  const fechaParts=fecha.split('-');
+  const fechaDisp=fechaParts[2]+'/'+fechaParts[1]+'/'+fechaParts[0];
+  try{
+    const r=await fetch(API+'/api/admin/eventos-periodo?pin='+encodeURIComponent(session.pin)+'&fecha='+fecha+'&desde='+encodeURIComponent(desde)+'&hasta='+encodeURIComponent(hasta));
+    const data=await r.json();
+    if(data.error){toast(data.error,'err');return;}
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const W=210,M=15,RW=W-M*2;
+    let y=20,pg=1;
+    const now=new Date();
+    function footer(){
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
+      doc.text('Documento generado automáticamente por Sistema de Conteo Vehicular',M,289);
+      doc.text('Página '+pg,W-M,289,{align:'right'});
+    }
+    function newPage(){footer();doc.addPage();pg++;y=20;}
+    function guard(h=10){if(y+h>280)newPage();}
+    function hLine(){doc.setDrawColor(200);doc.setLineWidth(0.2);doc.line(M,y,W-M,y);}
+    function sectionTitle(txt){
+      guard(14);y+=3;
+      doc.setFillColor(235,241,252);doc.roundedRect(M,y-5,RW,9,1,1,'F');
+      doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(30,60,130);
+      doc.text(txt,M+3,y);y+=8;
+    }
+    function kv(label,value){
+      guard(7);
+      doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
+      doc.text(label,M+4,y);
+      doc.setFont('helvetica','bold');doc.setTextColor(20,20,20);
+      doc.text(String(value),M+68,y);y+=6;
+    }
+    const totals={moto:0,taxi:0,bus:0,auto:0};
+    data.totales.forEach(t=>{if(totals[t.tipo]!==undefined)totals[t.tipo]=Math.max(0,parseInt(t.total)||0);});
+    const total=Object.values(totals).reduce((a,b)=>a+b,0);
+    const tipoNames={moto:'Motocicletas',taxi:'Taxis',bus:'Buses / Ómnibus',auto:'Autos / Camionetas'};
+    const pct=k=>total>0?(totals[k]/total*100).toFixed(1)+'%':'0%';
+    const predominante=total>0?tipoNames[Object.keys(totals).reduce((a,b)=>totals[a]>totals[b]?a:b)]:'—';
+    // HEADER
+    doc.setFillColor(22,68,142);doc.rect(0,0,W,18,'F');
+    doc.setFontSize(15);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text('INFORME DE CONTEO VEHICULAR',W/2,9,{align:'center'});
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(200,215,245);
+    doc.text('Sistema de Conteo Vehicular · '+fechaDisp,W/2,15,{align:'center'});
+    y=28;
+    // DATOS DEL INFORME
+    sectionTitle('DATOS DEL INFORME');
+    kv('Generado:',now.toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+now.toTimeString().slice(0,8));
+    kv('Período:',desde+' – '+hasta+' del '+fechaDisp);
+    kv('Exportado por:',session.usuario);
+    // RESUMEN EJECUTIVO
+    y+=3;sectionTitle('RESUMEN EJECUTIVO');
+    kv('Total de móviles registrados:',total);
+    kv('Motocicletas:',totals.moto+'   ('+pct('moto')+')');
+    kv('Taxis:',totals.taxi+'   ('+pct('taxi')+')');
+    kv('Buses / Ómnibus:',totals.bus+'   ('+pct('bus')+')');
+    kv('Autos / Camionetas:',totals.auto+'   ('+pct('auto')+')');
+    kv('Tipo predominante:',predominante);
+    // REGISTRO HORARIO
+    if(data.eventos.length){
+      y+=3;sectionTitle('REGISTRO HORARIO DEL PERÍODO');
+      const cols=[{l:'Hora',w:20},{l:'Tipo',w:36},{l:'Detalle',w:58},{l:'Agente',w:32},{l:'Punto',w:34}];
+      function tblHeader(){
+        guard(10);
+        doc.setFillColor(210,225,250);doc.rect(M,y-4,RW,7,'F');
+        doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,60,130);
+        let cx=M+2;cols.forEach(c=>{doc.text(c.l,cx,y);cx+=c.w;});
+        y+=5;hLine();y+=2;
+      }
+      tblHeader();
+      data.eventos.forEach((e,i)=>{
+        if(y>276){newPage();tblHeader();}
+        if(i%2===0){doc.setFillColor(246,249,255);doc.rect(M,y-3.5,RW,6,'F');}
+        doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
+        let cx=M+2;
+        [e.hora,labels[e.tipo]||e.tipo,e.detalle,e.operador||'',e.punto].forEach((v,vi)=>{
+          doc.text(doc.splitTextToSize(String(v||''),cols[vi].w-3)[0]||'',cx,y);
+          cx+=cols[vi].w;
+        });
+        y+=5.5;
+      });
+    }
+    footer();
+    doc.save('conteo-periodo-'+fecha+'-'+desde.replace(':','')+'-'+hasta.replace(':','')+'.pdf');
+    toast('PDF del período generado correctamente');
+  }catch(e){toast('Error al generar PDF del período','err');}
 }
 </script>
 </body>
