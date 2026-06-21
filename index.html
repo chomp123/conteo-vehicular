@@ -739,11 +739,24 @@ function renderAdminResumen(sesiones){
     const tots={moto:0,taxi:0,bus:0,auto:0};
     s.totales.forEach(t=>{tots[t.tipo]=Math.max(0,parseInt(t.total)||0);});
     const t=Object.values(tots).reduce((a,b)=>a+b,0); totalG+=t;
-    return`<div style="padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:600">${s.punto}</div>
-      <div style="font-size:11px;color:var(--text2)">${s.operador} · ${t} móviles · inicio ${s.inicio}</div>
+    return`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${s.punto}</div>
+        <div style="font-size:11px;color:var(--text2)">${s.operador} · ${t} móviles · inicio ${s.inicio}</div>
+      </div>
+      <button class="e-btn del" onclick="adminBorrarSesion(${s.id},'${s.punto.replace(/'/g,'&#39;')}')" title="Borrar sesión">🗑</button>
     </div>`;
   }).join('')+`<div style="padding-top:10px;font-size:13px;font-weight:700;color:var(--text)">Total global: ${totalG} móviles</div>`;
+}
+
+async function adminBorrarSesion(id, punto){
+  if(!confirm('¿Borrar la sesión de "'+punto+'" y todos sus eventos? Esta acción no se puede deshacer.'))return;
+  try{
+    const r=await fetch(API+'/api/admin/sesion/'+id+'?pin='+session.pin,{method:'DELETE'});
+    const d=await r.json();
+    if(d.ok){toast('Sesión eliminada correctamente');loadAdmin();}
+    else toast('Error: '+(d.error||'desconocido'),'err');
+  }catch(e){toast('Error de conexión','err');}
 }
 
 async function adminReset(){
