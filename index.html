@@ -426,7 +426,8 @@ async function doLogin() {
     const r = await fetch(API+'/api/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d = await r.json();
     if (!r.ok) { err.textContent=d.error||'Error al ingresar'; btn.disabled=false; btn.textContent='Ingresar'; return; }
-    session = {...d, pin};
+    session = {...d, pin, inicio: new Date().toISOString()};
+    localStorage.setItem('cv_session', JSON.stringify(session));
     showScreen(d.rol);
   } catch(e) {
     err.textContent='No se pudo conectar al servidor'; btn.disabled=false; btn.textContent='Ingresar';
@@ -443,6 +444,7 @@ function showScreen(rol) {
 
 function logout() {
   if (session?.sesion_id) fetch(API+'/api/sesion/'+session.sesion_id+'/cerrar',{method:'POST'}).catch(()=>{});
+  localStorage.removeItem('cv_session');
   clearInterval(timerInt); clearInterval(ctrlInt);
   session=null; counts={moto:0,taxi:0,bus:0,auto:0}; empresas={}; localEvents=[]; startTime=null;
   ctrlFilter='todos'; ctrlEventosAll=[]; ctrlSesiones=[]; ctrlPuntos=[];
@@ -464,8 +466,8 @@ function logout() {
 function initOperador() {
   document.getElementById('op-punto-label').textContent = session.punto;
   document.getElementById('op-nombre-badge').textContent = session.usuario;
-  startTime = new Date();
-  document.getElementById('op-inicio').textContent = nowStr();
+  if (!startTime) startTime = session.inicio ? new Date(session.inicio) : new Date();
+  document.getElementById('op-inicio').textContent = startTime.toTimeString().slice(0,8);
   timerInt = setInterval(()=>{
     const diff=Math.floor((Date.now()-startTime)/1000);
     const m=Math.floor(diff/60).toString().padStart(2,'0'),s=(diff%60).toString().padStart(2,'0');
@@ -786,6 +788,42 @@ async function adminBorrarEventos(){
     else toast('Error: '+(d.error||'desconocido'),'err');
   }catch(e){toast('Error de conexión','err');}
 }
+
+// ===== RESTAURAR SESIÓN =====
+async function tryRestoreSession(){
+  const saved=localStorage.getItem('cv_session');
+  if(!saved)return;
+  try{
+    const s=JSON.parse(saved);
+    if(!s||!s.rol)return;
+    if(s.sesion_id){
+      const r=await fetch(API+'/api/sesion/'+s.sesion_id+'/estado');
+      const d=await r.json();
+      if(!d.activa){localStorage.removeItem('cv_session');return;}
+      const [totRes,evRes]=await Promise.all([
+        fetch(API+'/api/sesion/'+s.sesion_id+'/totales'),
+        fetch(API+'/api/sesion/'+s.sesion_id+'/eventos')
+      ]);
+      const tots=await totRes.json();
+      const evs=await evRes.json();
+      tots.forEach(t=>{if(counts[t.tipo]!==undefined)counts[t.tipo]=Math.max(0,parseInt(t.total)||0);});
+      localEvents=evs.map((e,i)=>({id:i+1,hora:e.hora,tipo:e.tipo,detalle:e.detalle,accion:e.accion}));
+      eid=localEvents.length;
+      startTime=s.inicio?new Date(s.inicio):new Date();
+    }
+    session=s;
+    showScreen(s.rol);
+    if(s.sesion_id){
+      ['moto','taxi','bus','auto'].forEach(t=>document.getElementById('cnt-'+t).textContent=counts[t]);
+      updateStats();
+      renderEvents();
+    }
+  }catch(e){
+    localStorage.removeItem('cv_session');
+  }
+}
+
+tryRestoreSession();
 
 async function exportPDF(){
   if(!window.jspdf){toast('Librería PDF no cargada, intentá de nuevo','err');return;}
