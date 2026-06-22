@@ -1078,7 +1078,13 @@ async function exportPDFPeriodo(){
     sectionTitle('DATOS DEL INFORME');
     kv('Generado:',now.toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+now.toTimeString().slice(0,8));
     kv('Período:',desde+' – '+hasta+' del '+fechaDisp);
-    kv('Ubicación:',ubicacionLabel);
+    if(ubicacion){
+      kv('Ubicación:',ubicacionLabel);
+      const calles=[...new Set(data.eventos.map(e=>(e.punto||'').split(' — ')[1]).filter(Boolean))];
+      if(calles.length===1)kv('Calle / Esquina:',calles[0]);
+    }else{
+      kv('Ubicación:','Todas las ubicaciones');
+    }
     kv('Exportado por:',session.usuario);
     // RESUMEN EJECUTIVO
     y+=3;sectionTitle('RESUMEN EJECUTIVO');
@@ -1091,7 +1097,7 @@ async function exportPDFPeriodo(){
     // REGISTRO HORARIO
     if(data.eventos.length){
       y+=3;sectionTitle('REGISTRO HORARIO DEL PERÍODO');
-      const cols=[{l:'Hora',w:20},{l:'Tipo',w:36},{l:'Detalle',w:58},{l:'Agente',w:32},{l:'Punto',w:34}];
+      const cols=[{l:'Hora',w:18},{l:'Tipo',w:20},{l:'Detalle',w:40},{l:'Agente',w:28},{l:'Ubicación',w:36},{l:'Calle',w:30}];
       function tblHeader(){
         guard(10);
         doc.setFillColor(210,225,250);doc.rect(M,y-4,RW,7,'F');
@@ -1105,7 +1111,8 @@ async function exportPDFPeriodo(){
         if(i%2===0){doc.setFillColor(246,249,255);doc.rect(M,y-3.5,RW,6,'F');}
         doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
         let cx=M+2;
-        [e.hora,labels[e.tipo]||e.tipo,e.detalle,e.operador||'',e.punto].forEach((v,vi)=>{
+        const pp=(e.punto||'').split(' — ');
+        [e.hora,labels[e.tipo]||e.tipo,e.detalle,e.operador||'',pp[0]||'',pp[1]||''].forEach((v,vi)=>{
           doc.text(doc.splitTextToSize(String(v||''),cols[vi].w-3)[0]||'',cx,y);
           cx+=cols[vi].w;
         });
