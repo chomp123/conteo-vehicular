@@ -383,6 +383,14 @@
           <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Hora fin</div>
           <input type="time" id="pdf-hasta" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
         </div>
+        <div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Ubicación</div>
+          <select id="pdf-ubicacion" style="background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);font-size:13px">
+            <option value="">Todas las ubicaciones</option>
+            <option value="IPS">INSTITUTO DE PREVISION SOCIAL (IPS) 12 DE JUNIO</option>
+            <option value="UMAX">UNIVERSIDAD MARIA AUXILIADORA (UMAX)</option>
+          </select>
+        </div>
         <button class="btn-sec" onclick="exportPDFPeriodo()">⬇ Exportar PDF del período</button>
       </div>
     </div>
@@ -1015,12 +1023,16 @@ async function exportPDFPeriodo(){
   const fecha=document.getElementById('pdf-fecha').value;
   const desde=document.getElementById('pdf-desde').value;
   const hasta=document.getElementById('pdf-hasta').value;
+  const ubicacionEl=document.getElementById('pdf-ubicacion');
+  const ubicacion=ubicacionEl.value;
+  const ubicacionLabel=ubicacionEl.options[ubicacionEl.selectedIndex].text;
   if(!fecha||!desde||!hasta){toast('Completá fecha, hora inicio y hora fin','err');return;}
   if(desde>=hasta){toast('La hora inicio debe ser menor a la hora fin','err');return;}
   const fechaParts=fecha.split('-');
   const fechaDisp=fechaParts[2]+'/'+fechaParts[1]+'/'+fechaParts[0];
   try{
-    const r=await fetch(API+'/api/admin/eventos-periodo?pin='+encodeURIComponent(session.pin)+'&fecha='+fecha+'&desde='+encodeURIComponent(desde)+'&hasta='+encodeURIComponent(hasta));
+    const ubiParam=ubicacion?'&ubicacion='+encodeURIComponent(ubicacion):'';
+    const r=await fetch(API+'/api/admin/eventos-periodo?pin='+encodeURIComponent(session.pin)+'&fecha='+fecha+'&desde='+encodeURIComponent(desde)+'&hasta='+encodeURIComponent(hasta)+ubiParam);
     const data=await r.json();
     if(data.error){toast(data.error,'err');return;}
     const {jsPDF}=window.jspdf;
@@ -1066,6 +1078,7 @@ async function exportPDFPeriodo(){
     sectionTitle('DATOS DEL INFORME');
     kv('Generado:',now.toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+now.toTimeString().slice(0,8));
     kv('Período:',desde+' – '+hasta+' del '+fechaDisp);
+    kv('Ubicación:',ubicacionLabel);
     kv('Exportado por:',session.usuario);
     // RESUMEN EJECUTIVO
     y+=3;sectionTitle('RESUMEN EJECUTIVO');
